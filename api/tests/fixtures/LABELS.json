@@ -1,0 +1,4 @@
+{
+  "note": "Drop labelled real clips here (gitignored). Keys are filenames; values are frame indices in the SOURCE video, not 240 Hz.",
+  "clips": {}
+}
