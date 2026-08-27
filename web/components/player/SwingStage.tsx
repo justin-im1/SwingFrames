@@ -102,13 +102,10 @@ export function SwingStage({ swing }: { swing: SwingOut }) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        go(frame - (e.shiftKey ? 10 : 1));
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        go(frame + (e.shiftKey ? 10 : 1));
-      } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === " ") {
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         if (e.shiftKey) void redoLast();
         else void undoLast();
@@ -279,6 +276,7 @@ export function SwingStage({ swing }: { swing: SwingOut }) {
         fps={swing.fps}
         onSeek={go}
         onStep={(d) => go(frame + d)}
+        listenKeys
       />
       <div className="flex flex-wrap gap-2">
         {TOOLS.map((t) => (

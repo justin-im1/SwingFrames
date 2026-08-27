@@ -80,13 +80,6 @@ export default function SwingPage() {
           Session
         </Link>
       </div>
-      {swing.low_distinct_frames && (
-        <p className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-          Only {((swing.distinct_frame_ratio ?? 0) * 100).toFixed(0)}% of sampled
-          frames are distinct. The container fps is higher than the real
-          content — stepping may sit on duplicates.
-        </p>
-      )}
       <SwingStage swing={swing} />
     </div>
   );

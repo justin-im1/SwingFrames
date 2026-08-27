@@ -183,6 +183,7 @@ export function CompareView({
               fps={swingA.fps}
               onSeek={goA}
               onStep={(d) => goA(frameA + d)}
+              listenKeys
             />
           </div>
         </div>
