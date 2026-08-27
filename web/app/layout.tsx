@@ -20,7 +20,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "SwingFrames",
-  description: "Golf swing timing and consistency from phone video.",
+  description: "Frame-accurate golf swing review from phone video.",
 };
 
 export default function RootLayout({

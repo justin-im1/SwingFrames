@@ -6,14 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 import { DropZone } from "@/components/DropZone";
 import { api } from "@/lib/api";
 import { getStoredSessionId, setStoredSessionId } from "@/lib/client";
-import { viewLabel } from "@/lib/format";
-import type { SessionOut, SwingSummary } from "@/types/api";
+import type { SessionOut, SwingOut } from "@/types/api";
 
 export default function HomePage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionOut[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [swings, setSwings] = useState<SwingSummary[]>([]);
+  const [swings, setSwings] = useState<SwingOut[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,14 +67,15 @@ export default function HomePage() {
     <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-lime-dim">
-          Phone video in · timing out
+          You mark it · the computer measures it
         </p>
         <h1 className="display mt-2 text-4xl leading-tight sm:text-5xl">
-          Measure when things happen, not where they appear.
+          Frame-accurate swing review.
         </h1>
         <p className="mt-4 max-w-xl text-mute">
-          Camera angle wrecks joint angles. Tempo, sequence, and consistency
-          mostly survive. 60 fps required; the clip is deleted after analysis.
+          Scrub any frame, draw lines that stick, compare two swings, and tap
+          for camera-relative angles. Aim uses sticks on the ground — not pose
+          guesswork.
         </p>
         <div className="mt-8">
           <DropZone onFile={onFile} busy={busy} />
@@ -85,6 +85,25 @@ export default function HomePage() {
             {error}
           </p>
         )}
+        <ol className="mt-8 max-w-xl space-y-2 rounded-2xl border border-line bg-panel px-5 py-4 text-sm text-mute">
+          <li>
+            <span className="text-chalk">1. Upload.</span> iPhone HEVC is
+            transcoded to seekable H.264. Arrow keys step one frame.
+          </li>
+          <li>
+            <span className="text-chalk">2. Draw.</span> Lines, angles, circles
+            live on that frame. Sticky keeps a line visible through the swing.
+          </li>
+          <li>
+            <span className="text-chalk">3. Aim.</span> Two parallel sticks plus
+            a toe stick, or heels face-on. Image-space numbers are labeled
+            camera-relative.
+          </li>
+        </ol>
+        <p className="mt-4 text-xs text-mute">
+          Anyone with a swing or session link can watch the video. Clearing
+          cookies loses write access to your uploads.
+        </p>
       </div>
       <aside className="space-y-4">
         <div className="flex items-center justify-between">
@@ -129,20 +148,17 @@ export default function HomePage() {
                 className="flex items-center justify-between rounded-xl border border-line bg-panel px-4 py-3 hover:border-lime/50"
               >
                 <span>Swing {i + 1}</span>
-                <span className="text-xs text-mute">
-                  {s.status}
-                  {s.status === "ready" ? ` · ${viewLabel(s.view_class)}` : ""}
-                </span>
+                <span className="text-xs text-mute">{s.transcode_status}</span>
               </Link>
             </li>
           ))}
         </ul>
-        {sessionId && swings.filter((s) => s.status === "ready").length >= 3 && (
+        {sessionId && (
           <Link
             href={`/sessions/${sessionId}`}
-            className="block rounded-xl border border-lime/40 bg-lime/10 px-4 py-3 text-center text-sm text-lime"
+            className="block rounded-xl border border-line px-4 py-3 text-center text-sm text-mute hover:text-chalk"
           >
-            Consistency for this session
+            Session & insights
           </Link>
         )}
       </aside>

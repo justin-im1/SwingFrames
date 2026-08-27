@@ -21,22 +21,44 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
-class ViewClass(str, enum.Enum):
-    down_the_line = "down_the_line"
-    face_on = "face_on"
-    unknown = "unknown"
-
-
-class SwingStatus(str, enum.Enum):
-    uploaded = "uploaded"
-    processing = "processing"
+class TranscodeStatus(str, enum.Enum):
+    pending = "pending"
     ready = "ready"
     failed = "failed"
 
 
-class Handedness(str, enum.Enum):
-    right = "right"
-    left = "left"
+class AnnotationKind(str, enum.Enum):
+    line = "line"
+    angle = "angle"
+    circle = "circle"
+    freehand = "freehand"
+
+
+class CameraView(str, enum.Enum):
+    face_on = "face_on"
+    down_the_line = "down_the_line"
+
+
+class AimMethod(str, enum.Enum):
+    toe_stick = "toe_stick"
+    heel_taps = "heel_taps"
+
+
+class OutcomeResult(str, enum.Enum):
+    straight = "straight"
+    slice = "slice"
+    hook = "hook"
+    pull = "pull"
+    push = "push"
+    thin = "thin"
+    fat = "fat"
+    topped = "topped"
+
+
+class SyncMode(str, enum.Enum):
+    independent = "independent"
+    offset = "offset"
+    normalized = "normalized"
 
 
 class User(Base):
@@ -80,90 +102,126 @@ class Swing(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    source_fps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    filename: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    storage_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fps: Mapped[float | None] = mapped_column(Float, nullable=True)
     frame_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
-    view_class: Mapped[ViewClass] = mapped_column(
-        Enum(ViewClass, name="view_class"), default=ViewClass.unknown, nullable=False
-    )
-    view_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
-    quality_flags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
-    is_usable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    status: Mapped[SwingStatus] = mapped_column(
-        Enum(SwingStatus, name="swing_status"),
-        default=SwingStatus.uploaded,
+    distinct_frame_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    transcode_status: Mapped[TranscodeStatus] = mapped_column(
+        Enum(TranscodeStatus, name="transcode_status"),
+        default=TranscodeStatus.pending,
         nullable=False,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    handedness: Mapped[Handedness] = mapped_column(
-        Enum(Handedness, name="handedness"), default=Handedness.right, nullable=False
-    )
-    view_flagged_wrong: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     session: Mapped[Session] = relationship(back_populates="swings")
-    features: Mapped[SwingFeatures | None] = relationship(
+    annotations: Mapped[list[Annotation]] = relationship(back_populates="swing")
+    calibration: Mapped[Calibration | None] = relationship(
         back_populates="swing", uselist=False
     )
-    phases: Mapped[SwingPhases | None] = relationship(
-        back_populates="swing", uselist=False
+    aim_measurements: Mapped[list[AimMeasurement]] = relationship(
+        back_populates="swing"
     )
-    metrics: Mapped[SwingMetrics | None] = relationship(
-        back_populates="swing", uselist=False
-    )
+    outcomes: Mapped[list[Outcome]] = relationship(back_populates="swing")
 
 
-class SwingFeatures(Base):
-    __tablename__ = "swing_features"
+class Annotation(Base):
+    __tablename__ = "annotations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    swing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("swings.id"), nullable=False, index=True
+    )
+    frame: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[AnnotationKind] = mapped_column(
+        Enum(AnnotationKind, name="annotation_kind"), nullable=False
+    )
+    points: Mapped[list] = mapped_column(JSONB, nullable=False)
+    style: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    sticky: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    swing: Mapped[Swing] = relationship(back_populates="annotations")
+
+
+class Calibration(Base):
+    __tablename__ = "calibrations"
 
     swing_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("swings.id"), primary_key=True
     )
-    timestamps: Mapped[list] = mapped_column(JSONB, nullable=False)
-    pelvis_rotation: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    torso_rotation: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    lead_arm_angle: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    wrist_position: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    head_position: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    mean_visibility: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    debug_skeleton: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-
-    swing: Mapped[Swing] = relationship(back_populates="features")
-
-
-class SwingPhases(Base):
-    __tablename__ = "swing_phases"
-
-    swing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("swings.id"), primary_key=True
+    frame: Mapped[int] = mapped_column(Integer, nullable=False)
+    homography: Mapped[list] = mapped_column(JSONB, nullable=False)
+    stick_length_m: Mapped[float] = mapped_column(Float, nullable=False)
+    stick_separation_m: Mapped[float] = mapped_column(Float, nullable=False)
+    residual_px: Mapped[float] = mapped_column(Float, nullable=False)
+    view: Mapped[CameraView] = mapped_column(
+        Enum(CameraView, name="camera_view"), nullable=False
     )
-    address_idx: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    top_idx: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    impact_idx: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    finish_idx: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    segmentation_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    swing: Mapped[Swing] = relationship(back_populates="phases")
-
-
-class SwingMetrics(Base):
-    __tablename__ = "swing_metrics"
-
-    swing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("swings.id"), primary_key=True
+    calib_lines: Mapped[list] = mapped_column(JSONB, nullable=False)
+    toe_line: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    backswing_duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
-    downswing_duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
-    tempo_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
-    pelvis_peak_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
-    torso_peak_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
-    arm_peak_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
-    sequence_order_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    pelvis_torso_gap_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
-    torso_arm_gap_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
-    peak_magnitude_ratios: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    unreliable_metrics: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
 
-    swing: Mapped[Swing] = relationship(back_populates="metrics")
+    swing: Mapped[Swing] = relationship(back_populates="calibration")
+
+
+class AimMeasurement(Base):
+    __tablename__ = "aim_measurements"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    swing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("swings.id"), nullable=False, index=True
+    )
+    method: Mapped[AimMethod] = mapped_column(
+        Enum(AimMethod, name="aim_method"), nullable=False
+    )
+    view: Mapped[CameraView] = mapped_column(
+        Enum(CameraView, name="camera_view"), nullable=False
+    )
+    heel_a: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    heel_b: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    toe_line: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    feet_angle_deg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_band_deg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    verdict: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    swing: Mapped[Swing] = relationship(back_populates="aim_measurements")
+
+
+class Outcome(Base):
+    __tablename__ = "outcomes"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    swing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("swings.id"), nullable=False, unique=True
+    )
+    result: Mapped[OutcomeResult] = mapped_column(
+        Enum(OutcomeResult, name="outcome_result"), nullable=False
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    swing: Mapped[Swing] = relationship(back_populates="outcomes")
 
 
 class Comparison(Base):
@@ -178,13 +236,13 @@ class Comparison(Base):
     swing_b_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("swings.id"), nullable=False
     )
+    sync_mode: Mapped[SyncMode] = mapped_column(
+        Enum(SyncMode, name="sync_mode"),
+        default=SyncMode.independent,
+        nullable=False,
+    )
+    anchor_a: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    anchor_b: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    dtw_distance: Mapped[float | None] = mapped_column(Float, nullable=True)
-    dtw_normalized_distance: Mapped[float | None] = mapped_column(Float, nullable=True)
-    warping_path: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    timing_divergence: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    positional_comparable: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
     )

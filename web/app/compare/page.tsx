@@ -1,89 +1,96 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { WarpChart, WristOverlay } from "@/components/WarpChart";
+import { Suspense, useEffect, useState } from "react";
+import { CompareView } from "@/components/compare/CompareView";
 import { api } from "@/lib/api";
-import type { Comparison, SwingFeatures } from "@/types/api";
+import type { SwingOut } from "@/types/api";
+import { getStoredSessionId } from "@/lib/client";
 
 function CompareInner() {
   const params = useSearchParams();
   const a = params.get("a");
   const b = params.get("b");
-  const [comparison, setComparison] = useState<Comparison | null>(null);
-  const [fa, setFa] = useState<SwingFeatures | null>(null);
-  const [fb, setFb] = useState<SwingFeatures | null>(null);
+  const [swingA, setSwingA] = useState<SwingOut | null>(null);
+  const [swingB, setSwingB] = useState<SwingOut | null>(null);
+  const [swings, setSwings] = useState<SwingOut[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [pickA, setPickA] = useState(a ?? "");
+  const [pickB, setPickB] = useState(b ?? "");
 
   useEffect(() => {
-    if (!a || !b) return;
-    setLoading(true);
     void (async () => {
       try {
-        const [c, featA, featB] = await Promise.all([
-          api.compare(a, b),
-          api.getFeatures(a),
-          api.getFeatures(b),
-        ]);
-        setComparison(c);
-        setFa(featA);
-        setFb(featB);
+        const sid = getStoredSessionId();
+        if (sid) {
+          const session = await api.getSession(sid);
+          setSwings(session.swings.filter((s) => s.transcode_status === "ready"));
+        }
+        if (a) setSwingA(await api.getSwing(a));
+        if (b) setSwingB(await api.getSwing(b));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Compare failed.");
-      } finally {
-        setLoading(false);
+        setError(err instanceof Error ? err.message : "Could not load compare.");
       }
     })();
   }, [a, b]);
 
-  if (!a || !b) {
+  async function loadPair() {
+    if (!pickA || !pickB) return;
+    setSwingA(await api.getSwing(pickA));
+    setSwingB(await api.getSwing(pickB));
+  }
+
+  if (error) {
     return (
-      <p className="text-mute">
-        Pick two swings from a session page, or add <code>?a=&amp;b=</code> IDs
-        to this URL.
+      <p className="rounded-lg border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
+        {error}
       </p>
     );
   }
-  if (error) return <p className="text-bad">{error}</p>;
-  if (loading || !comparison) return <p className="text-mute">Aligning…</p>;
-
-  const ratios = comparison.timing_divergence?.phase_duration_ratios ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.16em] text-mute">
-          DTW · normalized distance{" "}
-          {comparison.dtw_normalized_distance?.toFixed(3) ?? "—"}
-        </p>
-        <h1 className="display text-3xl">Two-swing comparison</h1>
+        <p className="text-xs uppercase tracking-[0.16em] text-mute">Compare</p>
+        <h1 className="display text-3xl">Side by side</h1>
       </div>
-      <ul className="grid gap-3 sm:grid-cols-3">
-        {ratios.map((r) => (
-          <li
-            key={r.name}
-            className="rounded-2xl border border-line bg-panel p-4"
-          >
-            <p className="text-xs uppercase tracking-[0.14em] text-mute">
-              {r.name.replace("_", " ")}
-            </p>
-            <p className="mt-2 text-sm">{r.message}</p>
-            <p className="mt-2 text-xs text-mute">
-              {r.swing_a_s?.toFixed(2)}s → {r.swing_b_s?.toFixed(2)}s
-            </p>
-          </li>
-        ))}
-      </ul>
-      <WarpChart comparison={comparison} />
-      {fa && fb && (
-        <WristOverlay
-          a={fa}
-          b={fb}
-          enabled={comparison.positional_comparable}
-          reason={comparison.disabled_reason}
-        />
-      )}
+      <div className="flex flex-wrap gap-3">
+        <select
+          className="rounded-lg border border-line bg-panel px-3 py-2 text-sm"
+          value={pickA}
+          onChange={(e) => setPickA(e.target.value)}
+        >
+          <option value="">Swing A</option>
+          {swings.map((s, i) => (
+            <option key={s.id} value={s.id}>
+              {i + 1}. {s.filename ?? s.id.slice(0, 8)}
+            </option>
+          ))}
+        </select>
+        <select
+          className="rounded-lg border border-line bg-panel px-3 py-2 text-sm"
+          value={pickB}
+          onChange={(e) => setPickB(e.target.value)}
+        >
+          <option value="">Swing B</option>
+          {swings.map((s, i) => (
+            <option key={s.id} value={s.id}>
+              {i + 1}. {s.filename ?? s.id.slice(0, 8)}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="rounded-lg bg-lime px-3 py-2 text-sm text-ink"
+          onClick={() => void loadPair()}
+        >
+          Load
+        </button>
+      </div>
+      {swingA?.transcode_status === "ready" &&
+        swingB?.transcode_status === "ready" && (
+          <CompareView swingA={swingA} swingB={swingB} />
+        )}
     </div>
   );
 }

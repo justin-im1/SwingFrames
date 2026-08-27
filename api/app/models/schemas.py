@@ -6,110 +6,29 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-ViewClass = Literal["down_the_line", "face_on", "unknown"]
-SwingStatus = Literal["uploaded", "processing", "ready", "failed"]
-Handedness = Literal["right", "left"]
+TranscodeStatus = Literal["pending", "ready", "failed"]
+AnnotationKind = Literal["line", "angle", "circle", "freehand"]
+CameraView = Literal["face_on", "down_the_line"]
+AimMethod = Literal["toe_stick", "heel_taps"]
+OutcomeResult = Literal[
+    "straight", "slice", "hook", "pull", "push", "thin", "fat", "topped"
+]
+SyncMode = Literal["independent", "offset", "normalized"]
 
 
-class QualityFlag(BaseModel):
-    code: str
-    severity: Literal["info", "warning", "error"]
-    message: str
-    details: dict[str, Any] = Field(default_factory=dict)
+class Point(BaseModel):
+    x: float
+    y: float
 
 
-class SwingCreateResponse(BaseModel):
-    id: uuid.UUID
-    status: SwingStatus
-    session_id: uuid.UUID
+class LineSeg(BaseModel):
+    a: Point
+    b: Point
+    role: Literal["calib", "toe"] | None = None
 
 
-class SwingSummary(BaseModel):
-    id: uuid.UUID
-    session_id: uuid.UUID
-    created_at: datetime
-    status: SwingStatus
-    source_fps: float | None = None
-    frame_count: int | None = None
-    duration_s: float | None = None
-    view_class: ViewClass
-    view_confidence: float | None = None
-    quality_flags: list[QualityFlag] = Field(default_factory=list)
-    is_usable: bool = True
-    error_message: str | None = None
-    handedness: Handedness = "right"
-    view_flagged_wrong: bool = False
-
-
-class PhaseBoundary(BaseModel):
-    address_idx: int | None = None
-    top_idx: int | None = None
-    impact_idx: int | None = None
-    finish_idx: int | None = None
-    segmentation_confidence: float | None = None
-
-
-class SwingMetricsOut(BaseModel):
-    swing_id: uuid.UUID
-    backswing_duration_s: float | None = None
-    downswing_duration_s: float | None = None
-    tempo_ratio: float | None = None
-    pelvis_peak_time_s: float | None = None
-    torso_peak_time_s: float | None = None
-    arm_peak_time_s: float | None = None
-    sequence_order_correct: bool | None = None
-    pelvis_torso_gap_ms: float | None = None
-    torso_arm_gap_ms: float | None = None
-    peak_magnitude_ratios: dict[str, float] | None = None
-    unreliable_metrics: list[str] = Field(default_factory=list)
-    phases: PhaseBoundary | None = None
-
-
-class SwingFeaturesOut(BaseModel):
-    swing_id: uuid.UUID
-    timestamps: list[float]
-    pelvis_rotation: list[float | None] | None = None
-    torso_rotation: list[float | None] | None = None
-    lead_arm_angle: list[float | None] | None = None
-    pelvis_velocity: list[float | None] | None = None
-    torso_velocity: list[float | None] | None = None
-    arm_velocity: list[float | None] | None = None
-    wrist_position: list[list[float | None]] | None = None
-    head_position: list[list[float | None]] | None = None
-    mean_visibility: list[float | None] | None = None
-    debug_skeleton: dict[str, Any] | None = None
-
-
-class ComparisonCreate(BaseModel):
-    swing_a_id: uuid.UUID
-    swing_b_id: uuid.UUID
-
-
-class PhaseDurationRatio(BaseModel):
-    name: str
-    swing_a_s: float | None = None
-    swing_b_s: float | None = None
-    ratio: float | None = None
-    percent_longer_b: float | None = None
-    message: str
-
-
-class TimingDivergence(BaseModel):
-    deviation_curve: list[dict[str, float]]
-    phase_duration_ratios: list[PhaseDurationRatio]
-
-
-class ComparisonOut(BaseModel):
-    id: uuid.UUID
-    swing_a_id: uuid.UUID
-    swing_b_id: uuid.UUID
-    created_at: datetime
-    dtw_distance: float | None = None
-    dtw_normalized_distance: float | None = None
-    warping_path: list[list[int]] | None = None
-    timing_divergence: TimingDivergence | None = None
-    positional_comparable: bool
-    disabled_reason: str | None = None
+class SessionCreate(BaseModel):
+    label: str | None = None
 
 
 class SessionOut(BaseModel):
@@ -120,41 +39,138 @@ class SessionOut(BaseModel):
     swing_count: int = 0
 
 
-class SessionDetail(SessionOut):
-    swings: list[SwingSummary] = Field(default_factory=list)
-
-
-class ConsistencyMetric(BaseModel):
-    name: str
-    mean: float | None = None
-    std: float | None = None
-    cv: float | None = None
-    n: int
-    values: list[float | None]
-
-
-class ConsistencyOut(BaseModel):
+class SwingCreateResponse(BaseModel):
+    id: uuid.UUID
     session_id: uuid.UUID
+    transcode_status: TranscodeStatus
+
+
+class SwingOut(BaseModel):
+    id: uuid.UUID
+    session_id: uuid.UUID
+    created_at: datetime
+    label: str | None = None
+    filename: str | None = None
+    width: int | None = None
+    height: int | None = None
+    fps: float | None = None
+    frame_count: int | None = None
+    duration_s: float | None = None
+    distinct_frame_ratio: float | None = None
+    transcode_status: TranscodeStatus
+    error_message: str | None = None
+    low_distinct_frames: bool = False
+
+
+class SessionDetail(SessionOut):
+    swings: list[SwingOut] = Field(default_factory=list)
+
+
+class AnnotationCreate(BaseModel):
+    frame: int
+    kind: AnnotationKind
+    points: list[Point]
+    style: dict[str, Any] | None = None
+    label: str | None = None
+    sticky: bool = False
+
+
+class AnnotationOut(BaseModel):
+    id: uuid.UUID
+    swing_id: uuid.UUID
+    frame: int
+    kind: AnnotationKind
+    points: list[Point]
+    style: dict[str, Any] | None = None
+    label: str | None = None
+    sticky: bool
+    created_at: datetime
+
+
+class CalibrateRequest(BaseModel):
+    frame: int
+    view: CameraView
+    stick_length_m: float = 1.219
+    stick_separation_m: float
+    lines: list[LineSeg] | None = None
+
+
+class CalibrationOut(BaseModel):
+    swing_id: uuid.UUID
+    frame: int
+    homography: list[list[float]]
+    stick_length_m: float
+    stick_separation_m: float
+    residual_px: float
+    view: CameraView
+    calib_lines: list[LineSeg]
+    toe_line: LineSeg | None = None
+    line_count: int
+    message: str | None = None
+
+
+class AimRequest(BaseModel):
+    method: AimMethod
+    heel_a: Point | None = None
+    heel_b: Point | None = None
+    toe_line: LineSeg | None = None
+
+
+class AimOut(BaseModel):
+    id: uuid.UUID
+    swing_id: uuid.UUID
+    method: AimMethod
+    view: CameraView
+    heel_a: Point | None = None
+    heel_b: Point | None = None
+    toe_line: LineSeg | None = None
+    feet_angle_deg: float | None = None
+    error_band_deg: float | None = None
+    verdict: str | None = None
+    message: str | None = None
+    created_at: datetime
+
+
+class OutcomeCreate(BaseModel):
+    result: OutcomeResult
+    note: str | None = None
+
+
+class OutcomeOut(BaseModel):
+    id: uuid.UUID
+    swing_id: uuid.UUID
+    result: OutcomeResult
+    note: str | None = None
+    created_at: datetime
+
+
+class InsightLine(BaseModel):
+    text: str
     n: int
-    usable_n: int
+    outcome: OutcomeResult | None = None
+
+
+class InsightsOut(BaseModel):
+    session_id: uuid.UUID
+    tagged_n: int
     ready: bool
     message: str
-    metrics: list[ConsistencyMetric] = Field(default_factory=list)
-    least_repeatable: str | None = None
+    lines: list[InsightLine] = Field(default_factory=list)
 
 
-class ProBenchmark(BaseModel):
-    id: str
-    name: str
-    tempo_ratio: float
-    backswing_s: float
-    downswing_s: float
-    source: str
+class ComparisonCreate(BaseModel):
+    swing_a_id: uuid.UUID
+    swing_b_id: uuid.UUID
+    sync_mode: SyncMode = "independent"
+    anchor_a: int | None = None
+    anchor_b: int | None = None
 
 
-class SessionCreate(BaseModel):
-    label: str | None = None
-
-
-class FlagViewBody(BaseModel):
-    note: str | None = None
+class ComparisonOut(BaseModel):
+    id: uuid.UUID
+    swing_a_id: uuid.UUID
+    swing_b_id: uuid.UUID
+    sync_mode: SyncMode
+    anchor_a: int | None = None
+    anchor_b: int | None = None
+    created_at: datetime

@@ -1,11 +1,12 @@
 from app.db.base import Base
 from app.db.models import (
+    AimMeasurement,
+    Annotation,
+    Calibration,
     Comparison,
+    Outcome,
     Session,
     Swing,
-    SwingFeatures,
-    SwingMetrics,
-    SwingPhases,
     User,
 )
 
@@ -14,8 +15,9 @@ __all__ = [
     "User",
     "Session",
     "Swing",
-    "SwingFeatures",
-    "SwingPhases",
-    "SwingMetrics",
+    "Annotation",
+    "Calibration",
+    "AimMeasurement",
+    "Outcome",
     "Comparison",
 ]

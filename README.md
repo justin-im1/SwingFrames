@@ -1,28 +1,31 @@
 # SwingFrames
 
-Golf swing analysis from phone video. The product measures **timing and consistency**, not “swing quality.” Positional comparison only unlocks when two swings share a view class.
+Golf swing video review. You mark where the shaft, heels, and sticks are. The software does frame-accurate playback, persistent annotation, and geometry.
 
-Video is processed, then **discarded**. Analysis outputs (a few hundred KB of time series) are what persist.
+It does **not** estimate pose, score swing quality, track the clubface, or predict ball flight.
 
-## Constraints
+## What it measures
 
-- **60 fps minimum**, 120 fps preferred. A downswing is ~0.25s; 30 fps cannot resolve a velocity peak.
-- Angles come from MediaPipe **world landmarks**, never normalized 2D.
-- DTW is implemented by hand — no `dtaidistance`, no `fastdtw`.
-- No accounts. Identity is an anonymous `X-Client-Id` cookie (`sf_client_id`). Clearing cookies loses history; there is no cross-device continuity. Fine for a demo.
+- **Camera-relative** angles from tapped points (labeled as such in the UI). Valid for comparing two swings from the same camera.
+- **Ground-plane aim** from alignment sticks. Two parallel sticks of known length and separation give a homography and *are* the target line. A third stick across the toes is the accurate feet line. Two sticks plus heel taps is a face-on fallback with a wider error band; heel taps from down-the-line are refused.
+- **Outcome tags** (slice, hook, …) as *your* observation. Session insights are counts and group comparisons, not causes. “You aimed left on 8 of 10 slices” is not “aimed left → slice.”
 
 ## Stack
 
 | Layer | Choice |
 |---|---|
-| Frontend | Next.js 15, TypeScript, Tailwind 4 |
+| Frontend | Next.js 15, TypeScript, Tailwind 4, Canvas 2D |
 | Backend | FastAPI, Python 3.11+ |
-| Pose | MediaPipe Pose (`pose_world_landmarks`) |
+| Media | ffmpeg via `asyncio.create_subprocess_exec` |
+| Geometry | OpenCV headless (homography, stick detection) |
 | DB | PostgreSQL 16, SQLAlchemy 2, Alembic |
+| Identity | Anonymous `X-Client-Id` cookie (`sf_client_id`) |
+
+No accounts. Session and swing URLs are capability links: **anyone with the link can watch the video**. Writes require the cookie. Clearing cookies loses write access; there is no cross-device continuity.
 
 ## Run locally
 
-You need Docker (Postgres), Python 3.11+, Node 20+.
+You need Docker (Postgres), Python 3.11+, Node 20+. ffmpeg on `PATH` is preferred (`brew install ffmpeg`); otherwise the API uses the `imageio-ffmpeg` binary.
 
 ```bash
 # database
@@ -43,7 +46,19 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The Next.js app proxies `/api/*` to FastAPI.
+Open [http://localhost:3000](http://localhost:3000). Next.js proxies `/api/*` to FastAPI.
+
+## Frame accuracy
+
+Uploads are transcoded to H.264 with `-g 2` (nearly every frame a keyframe), audio dropped, rotation baked in. fps is `nb_read_packets / duration` from ffprobe, never container `r_frame_rate`.
+
+Generate the counter clip and step it in a **browser** (not with ffmpeg `-ss`):
+
+```bash
+cd api && python scripts/make_counter_video.py
+```
+
+Upload `storage/counter.mp4`. The on-screen number must match the UI frame index at every step.
 
 ## Tests
 
@@ -53,26 +68,17 @@ source .venv/bin/activate
 pytest
 ```
 
-Unit tests cover ingest fps gates, One Euro jitter reduction, view classification, synthetic segmentation/tempo, and DTW known-answer cases (identical series, time-stretched copy, the mean-deviation trap).
-
-Drop labelled real clips in `api/tests/fixtures/` and list them in `LABELS.json` to enable the optional labelled-fixture test. Large videos are gitignored.
-
 ## API
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/swings` | Upload video (async job) |
-| GET | `/api/swings/{id}` | Status, view class, quality flags |
-| GET | `/api/swings/{id}/metrics` | Tempo, sequence |
-| GET | `/api/swings/{id}/features` | Time series |
-| POST | `/api/comparisons` | DTW two swings |
-| GET | `/api/sessions/{id}/consistency` | CV across a session |
-| GET | `/api/benchmarks/pros` | Static tempo table |
-
-Pro numbers are published tempo figures, not measurements from licensed broadcast video.
-
-## Pipeline
-
-`ingest → pose → clean → normalize → view → segment → analyze` (+ `dtw` on compare).
-
-Quality flags always surface in the UI. A metric computed over gated-out landmarks is reported as unreliable, never as a silent number.
+| POST | `/api/swings` | Upload; returns `pending` |
+| GET | `/api/swings/{id}` | Metadata, measured fps, quality flags |
+| GET | `/api/media/{id}` | Video bytes; HTTP Range required |
+| GET/POST | `/api/swings/{id}/annotations` | Per-frame drawings (normalized coords) |
+| DELETE | `/api/annotations/{id}` | |
+| POST | `/api/swings/{id}/calibrate` | Stick detect + homography |
+| POST | `/api/swings/{id}/aim` | Toe-stick or face-on heel taps |
+| POST | `/api/swings/{id}/outcome` | Tag ball flight |
+| GET | `/api/sessions/{id}/insights` | Correlations across tagged swings |
+| POST | `/api/comparisons` | Persist a pair + sync mode |

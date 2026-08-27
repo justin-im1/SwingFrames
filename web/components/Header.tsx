@@ -20,31 +20,24 @@ export function Header() {
             SwingFrames
           </span>
           <span className="hidden text-xs uppercase tracking-[0.18em] text-mute sm:inline">
-            timing · not positions
+            review · measure
           </span>
         </Link>
         <nav className="flex items-center gap-5 text-sm text-mute">
-          <Link
-            href="/"
-            className={path === "/" ? "text-lime" : "hover:text-chalk"}
-          >
+          <Link href="/" className={path === "/" ? "text-lime" : "hover:text-chalk"}>
             Upload
           </Link>
           {sessionId && (
             <Link
               href={`/sessions/${sessionId}`}
-              className={
-                path.startsWith("/sessions") ? "text-lime" : "hover:text-chalk"
-              }
+              className={path.startsWith("/sessions") ? "text-lime" : "hover:text-chalk"}
             >
               Session
             </Link>
           )}
           <Link
             href="/compare"
-            className={
-              path.startsWith("/compare") ? "text-lime" : "hover:text-chalk"
-            }
+            className={path.startsWith("/compare") ? "text-lime" : "hover:text-chalk"}
           >
             Compare
           </Link>

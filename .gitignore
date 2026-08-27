@@ -17,5 +17,8 @@ api/tests/fixtures/*.mov
 api/tests/fixtures/*.avi
 uploads/
 tmp/
+storage/*
+!storage/.gitkeep
 .idea/
 .vscode/
+videos/

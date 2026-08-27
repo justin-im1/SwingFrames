@@ -1,108 +1,24 @@
-export type ViewClass = "down_the_line" | "face_on" | "unknown";
-export type SwingStatus = "uploaded" | "processing" | "ready" | "failed";
-export type Handedness = "right" | "left";
+export type TranscodeStatus = "pending" | "ready" | "failed";
+export type AnnotationKind = "line" | "angle" | "circle" | "freehand";
+export type CameraView = "face_on" | "down_the_line";
+export type AimMethod = "toe_stick" | "heel_taps";
+export type OutcomeResult =
+  | "straight"
+  | "slice"
+  | "hook"
+  | "pull"
+  | "push"
+  | "thin"
+  | "fat"
+  | "topped";
+export type SyncMode = "independent" | "offset" | "normalized";
 
-export type QualityFlag = {
-  code: string;
-  severity: "info" | "warning" | "error";
-  message: string;
-  details?: Record<string, unknown>;
-};
+export type Point = { x: number; y: number };
 
-export type SwingCreateResponse = {
-  id: string;
-  status: SwingStatus;
-  session_id: string;
-};
-
-export type SwingSummary = {
-  id: string;
-  session_id: string;
-  created_at: string;
-  status: SwingStatus;
-  source_fps: number | null;
-  frame_count: number | null;
-  duration_s: number | null;
-  view_class: ViewClass;
-  view_confidence: number | null;
-  quality_flags: QualityFlag[];
-  is_usable: boolean;
-  error_message: string | null;
-  handedness: Handedness;
-  view_flagged_wrong: boolean;
-};
-
-export type PhaseBoundary = {
-  address_idx: number | null;
-  top_idx: number | null;
-  impact_idx: number | null;
-  finish_idx: number | null;
-  segmentation_confidence: number | null;
-};
-
-export type SwingMetrics = {
-  swing_id: string;
-  backswing_duration_s: number | null;
-  downswing_duration_s: number | null;
-  tempo_ratio: number | null;
-  pelvis_peak_time_s: number | null;
-  torso_peak_time_s: number | null;
-  arm_peak_time_s: number | null;
-  sequence_order_correct: boolean | null;
-  pelvis_torso_gap_ms: number | null;
-  torso_arm_gap_ms: number | null;
-  peak_magnitude_ratios: Record<string, number> | null;
-  unreliable_metrics: string[];
-  phases: PhaseBoundary | null;
-};
-
-export type SwingFeatures = {
-  swing_id: string;
-  timestamps: number[];
-  pelvis_rotation: Array<number | null> | null;
-  torso_rotation: Array<number | null> | null;
-  lead_arm_angle: Array<number | null> | null;
-  pelvis_velocity: Array<number | null> | null;
-  torso_velocity: Array<number | null> | null;
-  arm_velocity: Array<number | null> | null;
-  wrist_position: Array<Array<number | null>> | null;
-  head_position: Array<Array<number | null>> | null;
-  mean_visibility: Array<number | null> | null;
-  debug_skeleton: {
-    timestamps: number[];
-    landmarks: number[][][];
-  } | null;
-};
-
-export type PhaseDurationRatio = {
-  name: string;
-  swing_a_s: number | null;
-  swing_b_s: number | null;
-  ratio: number | null;
-  percent_longer_b: number | null;
-  message: string;
-};
-
-export type Comparison = {
-  id: string;
-  swing_a_id: string;
-  swing_b_id: string;
-  created_at: string;
-  dtw_distance: number | null;
-  dtw_normalized_distance: number | null;
-  warping_path: number[][] | null;
-  timing_divergence: {
-    deviation_curve: Array<{
-      i: number;
-      j: number;
-      i_rel: number;
-      j_rel: number;
-      deviation: number;
-    }>;
-    phase_duration_ratios: PhaseDurationRatio[];
-  } | null;
-  positional_comparable: boolean;
-  disabled_reason: string | null;
+export type LineSeg = {
+  a: Point;
+  b: Point;
+  role?: "calib" | "toe" | null;
 };
 
 export type SessionOut = {
@@ -113,32 +29,94 @@ export type SessionOut = {
   swing_count: number;
 };
 
-export type SessionDetail = SessionOut & { swings: SwingSummary[] };
-
-export type ConsistencyMetric = {
-  name: string;
-  mean: number | null;
-  std: number | null;
-  cv: number | null;
-  n: number;
-  values: Array<number | null>;
+export type SwingCreateResponse = {
+  id: string;
+  session_id: string;
+  transcode_status: TranscodeStatus;
 };
 
-export type ConsistencyOut = {
+export type SwingOut = {
+  id: string;
   session_id: string;
-  n: number;
-  usable_n: number;
+  created_at: string;
+  label: string | null;
+  filename: string | null;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  frame_count: number | null;
+  duration_s: number | null;
+  distinct_frame_ratio: number | null;
+  transcode_status: TranscodeStatus;
+  error_message: string | null;
+  low_distinct_frames: boolean;
+};
+
+export type SessionDetail = SessionOut & { swings: SwingOut[] };
+
+export type AnnotationOut = {
+  id: string;
+  swing_id: string;
+  frame: number;
+  kind: AnnotationKind;
+  points: Point[];
+  style: Record<string, unknown> | null;
+  label: string | null;
+  sticky: boolean;
+  created_at: string;
+};
+
+export type CalibrationOut = {
+  swing_id: string;
+  frame: number;
+  homography: number[][];
+  stick_length_m: number;
+  stick_separation_m: number;
+  residual_px: number;
+  view: CameraView;
+  calib_lines: LineSeg[];
+  toe_line: LineSeg | null;
+  line_count: number;
+  message: string | null;
+};
+
+export type AimOut = {
+  id: string;
+  swing_id: string;
+  method: AimMethod;
+  view: CameraView;
+  heel_a: Point | null;
+  heel_b: Point | null;
+  toe_line: LineSeg | null;
+  feet_angle_deg: number | null;
+  error_band_deg: number | null;
+  verdict: string | null;
+  message: string | null;
+  created_at: string;
+};
+
+export type OutcomeOut = {
+  id: string;
+  swing_id: string;
+  result: OutcomeResult;
+  note: string | null;
+  created_at: string;
+};
+
+export type InsightsOut = {
+  session_id: string;
+  tagged_n: number;
   ready: boolean;
   message: string;
-  metrics: ConsistencyMetric[];
-  least_repeatable: string | null;
+  lines: { text: string; n: number; outcome: OutcomeResult | null }[];
 };
 
-export type ProBenchmark = {
+export type ComparisonOut = {
   id: string;
-  name: string;
-  tempo_ratio: number;
-  backswing_s: number;
-  downswing_s: number;
-  source: string;
+  swing_a_id: string;
+  swing_b_id: string;
+  sync_mode: SyncMode;
+  anchor_a: number | null;
+  anchor_b: number | null;
+  created_at: string;
 };

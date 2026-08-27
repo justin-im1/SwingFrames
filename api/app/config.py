@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -8,12 +12,13 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://swingframes:swingframes@localhost:5432/swingframes"
     )
     cors_origins: str = "http://localhost:3000"
-    min_fps: float = 60.0
-    warn_fps: float = 120.0
-    max_duration_s: float = 15.0
-    max_long_side: int = 1080
-    resample_hz: float = 240.0
     max_upload_bytes: int = 500 * 1024 * 1024
+    max_duration_s: float = 60.0
+    storage_dir: str = str(ROOT / "storage")
+    distinct_frame_warn_ratio: float = 0.5
+    residual_px_number_max: float = 4.0
+    heel_error_band_deg: float = 2.0
+    toe_error_band_deg: float = 1.0
 
     @property
     def database_url_sync(self) -> str:
@@ -22,6 +27,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [part.strip() for part in self.cors_origins.split(",") if part.strip()]
+
+    @property
+    def storage_path(self) -> Path:
+        return Path(self.storage_dir)
 
 
 settings = Settings()

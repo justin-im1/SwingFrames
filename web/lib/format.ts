@@ -1,30 +1,31 @@
 export function viewLabel(view: string): string {
   if (view === "down_the_line") return "Down the line";
   if (view === "face_on") return "Face-on";
-  return "Unknown view";
+  return view;
 }
 
-export function formatTempo(ratio: number | null): string {
-  if (ratio == null || !Number.isFinite(ratio)) return "—";
-  return `${ratio.toFixed(2)} : 1`;
+export function formatFrame(n: number, fps: number | null): string {
+  if (fps && fps > 0) {
+    return `${n}  ·  ${(n / fps).toFixed(3)}s`;
+  }
+  return String(n);
 }
 
-export function formatMs(ms: number | null): string {
-  if (ms == null || !Number.isFinite(ms)) return "—";
-  return `${ms.toFixed(0)} ms`;
+export function formatAngle(deg: number | null, band?: number | null): string {
+  if (deg == null || !Number.isFinite(deg)) return "—";
+  const dir = deg > 0 ? "R" : deg < 0 ? "L" : "";
+  const core = `${deg >= 0 ? "+" : ""}${deg.toFixed(1)}°`;
+  if (band != null) return `${core} ${dir}  ±${band.toFixed(1)}°`;
+  return `${core} ${dir}`.trim();
 }
 
-export function formatSec(s: number | null): string {
-  if (s == null || !Number.isFinite(s)) return "—";
-  return `${s.toFixed(2)} s`;
-}
-
-export function metricLabel(name: string): string {
-  return name.replaceAll("_", " ");
-}
-
-export function stride<T>(items: T[], max = 400): T[] {
-  if (items.length <= max) return items;
-  const step = Math.ceil(items.length / max);
-  return items.filter((_, i) => i % step === 0);
-}
+export const OUTCOMES = [
+  "straight",
+  "slice",
+  "hook",
+  "pull",
+  "push",
+  "thin",
+  "fat",
+  "topped",
+] as const;
