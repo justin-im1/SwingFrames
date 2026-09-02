@@ -1,7 +1,5 @@
 export type TranscodeStatus = "pending" | "ready" | "failed";
 export type AnnotationKind = "line" | "angle" | "circle" | "freehand";
-export type CameraView = "face_on" | "down_the_line";
-export type AimMethod = "toe_stick" | "heel_taps";
 export type OutcomeResult =
   | "straight"
   | "slice"
@@ -14,12 +12,6 @@ export type OutcomeResult =
 export type SyncMode = "independent" | "offset" | "normalized";
 
 export type Point = { x: number; y: number };
-
-export type LineSeg = {
-  a: Point;
-  b: Point;
-  role?: "calib" | "toe" | null;
-};
 
 export type SessionOut = {
   id: string;
@@ -63,35 +55,6 @@ export type AnnotationOut = {
   style: Record<string, unknown> | null;
   label: string | null;
   sticky: boolean;
-  created_at: string;
-};
-
-export type CalibrationOut = {
-  swing_id: string;
-  frame: number;
-  homography: number[][];
-  stick_length_m: number;
-  stick_separation_m: number;
-  residual_px: number;
-  view: CameraView;
-  calib_lines: LineSeg[];
-  toe_line: LineSeg | null;
-  line_count: number;
-  message: string | null;
-};
-
-export type AimOut = {
-  id: string;
-  swing_id: string;
-  method: AimMethod;
-  view: CameraView;
-  heel_a: Point | null;
-  heel_b: Point | null;
-  toe_line: LineSeg | null;
-  feet_angle_deg: number | null;
-  error_band_deg: number | null;
-  verdict: string | null;
-  message: string | null;
   created_at: string;
 };
 

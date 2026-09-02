@@ -8,8 +8,6 @@ from pydantic import BaseModel, Field
 
 TranscodeStatus = Literal["pending", "ready", "failed"]
 AnnotationKind = Literal["line", "angle", "circle", "freehand"]
-CameraView = Literal["face_on", "down_the_line"]
-AimMethod = Literal["toe_stick", "heel_taps"]
 OutcomeResult = Literal[
     "straight", "slice", "hook", "pull", "push", "thin", "fat", "topped"
 ]
@@ -19,12 +17,6 @@ SyncMode = Literal["independent", "offset", "normalized"]
 class Point(BaseModel):
     x: float
     y: float
-
-
-class LineSeg(BaseModel):
-    a: Point
-    b: Point
-    role: Literal["calib", "toe"] | None = None
 
 
 class SessionCreate(BaseModel):
@@ -87,48 +79,10 @@ class AnnotationOut(BaseModel):
     created_at: datetime
 
 
-class CalibrateRequest(BaseModel):
-    frame: int
-    view: CameraView
-    stick_length_m: float = 1.219
-    stick_separation_m: float
-    lines: list[LineSeg] | None = None
-
-
-class CalibrationOut(BaseModel):
-    swing_id: uuid.UUID
-    frame: int
-    homography: list[list[float]]
-    stick_length_m: float
-    stick_separation_m: float
-    residual_px: float
-    view: CameraView
-    calib_lines: list[LineSeg]
-    toe_line: LineSeg | None = None
-    line_count: int
-    message: str | None = None
-
-
-class AimRequest(BaseModel):
-    method: AimMethod
-    heel_a: Point | None = None
-    heel_b: Point | None = None
-    toe_line: LineSeg | None = None
-
-
-class AimOut(BaseModel):
-    id: uuid.UUID
-    swing_id: uuid.UUID
-    method: AimMethod
-    view: CameraView
-    heel_a: Point | None = None
-    heel_b: Point | None = None
-    toe_line: LineSeg | None = None
-    feet_angle_deg: float | None = None
-    error_band_deg: float | None = None
-    verdict: str | None = None
-    message: str | None = None
-    created_at: datetime
+class AnnotationCopy(BaseModel):
+    source_id: uuid.UUID
+    target_frame: int = 0
+    annotation_ids: list[uuid.UUID] | None = None
 
 
 class OutcomeCreate(BaseModel):

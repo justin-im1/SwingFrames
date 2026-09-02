@@ -14,6 +14,7 @@ export default function SwingPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!id) return;
     let cancelled = false;
     let timer: number | undefined;
     async function poll() {
@@ -21,6 +22,7 @@ export default function SwingPage() {
         const data = await api.getSwing(id);
         if (cancelled) return;
         setSwing(data);
+        setError(null);
         if (data.transcode_status === "pending") {
           timer = window.setTimeout(poll, 800);
         }

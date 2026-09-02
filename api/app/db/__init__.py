@@ -1,14 +1,5 @@
 from app.db.base import Base
-from app.db.models import (
-    AimMeasurement,
-    Annotation,
-    Calibration,
-    Comparison,
-    Outcome,
-    Session,
-    Swing,
-    User,
-)
+from app.db.models import Annotation, Comparison, Outcome, Session, Swing, User
 
 __all__ = [
     "Base",
@@ -16,8 +7,6 @@ __all__ = [
     "Session",
     "Swing",
     "Annotation",
-    "Calibration",
-    "AimMeasurement",
     "Outcome",
     "Comparison",
 ]

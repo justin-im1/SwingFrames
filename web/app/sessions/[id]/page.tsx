@@ -70,7 +70,7 @@ export default function SessionPage() {
       {insights && (
         <section className="rounded-2xl border border-line bg-panel p-5">
           <h2 className="text-sm uppercase tracking-[0.16em] text-mute">
-            Correlations
+            Ball flight
           </h2>
           <p className="mt-2 text-sm text-mute">{insights.message}</p>
           <ul className="mt-4 space-y-2">

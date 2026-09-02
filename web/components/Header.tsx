@@ -20,7 +20,7 @@ export function Header() {
             SwingFrames
           </span>
           <span className="hidden text-xs uppercase tracking-[0.18em] text-mute sm:inline">
-            review · measure
+            review
           </span>
         </Link>
         <nav className="flex items-center gap-5 text-sm text-mute">

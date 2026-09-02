@@ -100,11 +100,50 @@ export function CompareView({
   const [anchorB, setAnchorB] = useState(0);
   const [annsA, setAnnsA] = useState<Awaited<ReturnType<typeof api.listAnnotations>>>([]);
   const [annsB, setAnnsB] = useState<Awaited<ReturnType<typeof api.listAnnotations>>>([]);
+  const [copying, setCopying] = useState<"ab" | "ba" | null>(null);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reloadAnns() {
+    const [a, b] = await Promise.all([
+      api.listAnnotations(swingA.id),
+      api.listAnnotations(swingB.id),
+    ]);
+    setAnnsA(a);
+    setAnnsB(b);
+  }
 
   useEffect(() => {
-    void api.listAnnotations(swingA.id).then(setAnnsA);
-    void api.listAnnotations(swingB.id).then(setAnnsB);
+    void reloadAnns().catch((err) => {
+      setError(err instanceof Error ? err.message : "Could not load drawings.");
+    });
   }, [swingA.id, swingB.id]);
+
+  async function copy(direction: "ab" | "ba") {
+    const sourceId = direction === "ab" ? swingA.id : swingB.id;
+    const targetId = direction === "ab" ? swingB.id : swingA.id;
+    const sourceAnns = direction === "ab" ? annsA : annsB;
+    const targetFrame = direction === "ab" ? frameB : frameA;
+    if (sourceId === targetId) {
+      setCopyMsg("Pick two different swings.");
+      return;
+    }
+    if (sourceAnns.length === 0) {
+      setCopyMsg("Nothing to copy on that swing.");
+      return;
+    }
+    setCopying(direction);
+    setError(null);
+    setCopyMsg(null);
+    try {
+      await api.copyAnnotations(targetId, sourceId, targetFrame);
+      await reloadAnns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not copy drawings.");
+    } finally {
+      setCopying(null);
+    }
+  }
 
   const goA = useCallback(
     (n: number) => {
@@ -162,7 +201,33 @@ export function CompareView({
             </button>
           </>
         )}
+        <button
+          type="button"
+          disabled={copying !== null}
+          onClick={() => void copy("ab")}
+          className="rounded-full border border-line px-3 py-1 text-mute disabled:opacity-40"
+        >
+          {copying === "ab" ? "Copying…" : "Copy A → B"}
+        </button>
+        <button
+          type="button"
+          disabled={copying !== null}
+          onClick={() => void copy("ba")}
+          className="rounded-full border border-line px-3 py-1 text-mute disabled:opacity-40"
+        >
+          {copying === "ba" ? "Copying…" : "Copy B → A"}
+        </button>
       </div>
+      <p className="text-xs text-mute">
+        Copies every drawing onto the other clip in the same place in the
+        frame. Does not follow the body if the camera moved.
+      </p>
+      {copyMsg && <p className="text-sm text-mute">{copyMsg}</p>}
+      {error && (
+        <p className="rounded-lg border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
+          {error}
+        </p>
+      )}
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
           <p className="mb-2 text-xs uppercase tracking-[0.16em] text-mute">

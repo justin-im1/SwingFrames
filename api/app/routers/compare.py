@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import AimMeasurement, Comparison, Outcome, Swing, SyncMode, User
+from app.db.models import Comparison, Outcome, Swing, SyncMode, User
 from app.db.session import get_db
 from app.deps import get_client_user, get_session_by_id, require_swing_owner
 from app.insights import build_insights
@@ -86,13 +86,4 @@ async def session_insights(
         if ids
         else []
     )
-    aims = (
-        (
-            await db.execute(select(AimMeasurement).where(AimMeasurement.swing_id.in_(ids)))
-        )
-        .scalars()
-        .all()
-        if ids
-        else []
-    )
-    return build_insights(session.id, list(swings), list(outcomes), list(aims))
+    return build_insights(session.id, list(swings), list(outcomes))

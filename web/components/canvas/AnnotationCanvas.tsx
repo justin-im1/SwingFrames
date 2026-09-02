@@ -5,7 +5,7 @@ import type { AnnotationKind, AnnotationOut, Point } from "@/types/api";
 import { displayedVideoBox, toNormalized, type Box } from "@/lib/videoBox";
 import { drawAnnotation, neededPoints, visibleForFrame } from "@/components/canvas/draw";
 
-type Tool = AnnotationKind | "measure" | "heel" | "none";
+type Tool = AnnotationKind | "none";
 
 type Props = {
   annotations: AnnotationOut[];
@@ -15,8 +15,7 @@ type Props = {
   tool: Tool;
   draft: Point[];
   onDraft: (points: Point[]) => void;
-  onComplete: (kind: AnnotationKind, points: Point[]) => void;
-  overlay?: { kind: "line"; a: Point; b: Point; label?: string }[];
+  onComplete: (points: Point[]) => void;
   className?: string;
 };
 
@@ -29,7 +28,6 @@ export function AnnotationCanvas({
   draft,
   onDraft,
   onComplete,
-  overlay,
   className,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,21 +56,15 @@ export function AnnotationCanvas({
       drawAnnotation(ctx, item, box.width, box.height);
     }
     if (draft.length) {
-      const kind: AnnotationKind =
-        tool === "measure" || tool === "heel" || tool === "none" ? "line" : tool;
-      drawAnnotation(ctx, { kind: kind === "freehand" && draft.length < 2 ? "line" : kind, points: draft }, box.width, box.height);
+      const kind: AnnotationKind = tool === "none" ? "line" : tool;
+      drawAnnotation(
+        ctx,
+        { kind: kind === "freehand" && draft.length < 2 ? "line" : kind, points: draft },
+        box.width,
+        box.height
+      );
     }
-    if (overlay) {
-      for (const line of overlay) {
-        drawAnnotation(
-          ctx,
-          { kind: "line", points: [line.a, line.b], label: line.label },
-          box.width,
-          box.height
-        );
-      }
-    }
-  }, [annotations, frame, intrinsicW, intrinsicH, draft, tool, overlay]);
+  }, [annotations, frame, intrinsicW, intrinsicH, draft, tool]);
 
   useEffect(() => {
     paint();
@@ -101,12 +93,9 @@ export function AnnotationCanvas({
       return;
     }
     const next = [...draft, p];
-    const kind: AnnotationKind =
-      tool === "measure" || tool === "heel" ? "line" : tool;
-    const need =
-      tool === "measure" ? 3 : tool === "heel" ? 2 : neededPoints(kind);
+    const need = neededPoints(tool);
     if (need > 0 && next.length >= need) {
-      onComplete(kind, next);
+      onComplete(next);
       onDraft([]);
     } else {
       onDraft(next);
@@ -122,7 +111,7 @@ export function AnnotationCanvas({
 
   function onPointerUp() {
     if (tool === "freehand" && draft.length >= 2) {
-      onComplete("freehand", draft);
+      onComplete(draft);
       onDraft([]);
     }
   }

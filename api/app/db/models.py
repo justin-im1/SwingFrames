@@ -34,16 +34,6 @@ class AnnotationKind(str, enum.Enum):
     freehand = "freehand"
 
 
-class CameraView(str, enum.Enum):
-    face_on = "face_on"
-    down_the_line = "down_the_line"
-
-
-class AimMethod(str, enum.Enum):
-    toe_stick = "toe_stick"
-    heel_taps = "heel_taps"
-
-
 class OutcomeResult(str, enum.Enum):
     straight = "straight"
     slice = "slice"
@@ -120,12 +110,6 @@ class Swing(Base):
 
     session: Mapped[Session] = relationship(back_populates="swings")
     annotations: Mapped[list[Annotation]] = relationship(back_populates="swing")
-    calibration: Mapped[Calibration | None] = relationship(
-        back_populates="swing", uselist=False
-    )
-    aim_measurements: Mapped[list[AimMeasurement]] = relationship(
-        back_populates="swing"
-    )
     outcomes: Mapped[list[Outcome]] = relationship(back_populates="swing")
 
 
@@ -151,57 +135,6 @@ class Annotation(Base):
     )
 
     swing: Mapped[Swing] = relationship(back_populates="annotations")
-
-
-class Calibration(Base):
-    __tablename__ = "calibrations"
-
-    swing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("swings.id"), primary_key=True
-    )
-    frame: Mapped[int] = mapped_column(Integer, nullable=False)
-    homography: Mapped[list] = mapped_column(JSONB, nullable=False)
-    stick_length_m: Mapped[float] = mapped_column(Float, nullable=False)
-    stick_separation_m: Mapped[float] = mapped_column(Float, nullable=False)
-    residual_px: Mapped[float] = mapped_column(Float, nullable=False)
-    view: Mapped[CameraView] = mapped_column(
-        Enum(CameraView, name="camera_view"), nullable=False
-    )
-    calib_lines: Mapped[list] = mapped_column(JSONB, nullable=False)
-    toe_line: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    swing: Mapped[Swing] = relationship(back_populates="calibration")
-
-
-class AimMeasurement(Base):
-    __tablename__ = "aim_measurements"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    swing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("swings.id"), nullable=False, index=True
-    )
-    method: Mapped[AimMethod] = mapped_column(
-        Enum(AimMethod, name="aim_method"), nullable=False
-    )
-    view: Mapped[CameraView] = mapped_column(
-        Enum(CameraView, name="camera_view"), nullable=False
-    )
-    heel_a: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    heel_b: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    toe_line: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    feet_angle_deg: Mapped[float | None] = mapped_column(Float, nullable=True)
-    error_band_deg: Mapped[float | None] = mapped_column(Float, nullable=True)
-    verdict: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    swing: Mapped[Swing] = relationship(back_populates="aim_measurements")
 
 
 class Outcome(Base):

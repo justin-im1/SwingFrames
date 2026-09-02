@@ -1,14 +1,14 @@
 # SwingFrames
 
-Golf swing video review. You mark where the shaft, heels, and sticks are. The software does frame-accurate playback, persistent annotation, and geometry.
+Golf swing video review. Frame-accurate playback, persistent annotation, and side-by-side compare.
 
-It does **not** estimate pose, score swing quality, track the clubface, or predict ball flight.
+It does **not** estimate pose, score swing quality, track the clubface, measure aim, or predict ball flight.
 
-## What it measures
+## What it does
 
-- **Camera-relative** angles from tapped points (labeled as such in the UI). Valid for comparing two swings from the same camera.
-- **Ground-plane aim** from alignment sticks. Two parallel sticks of known length and separation give a homography and *are* the target line. A third stick across the toes is the accurate feet line. Two sticks plus heel taps is a face-on fallback with a wider error band; heel taps from down-the-line are refused.
-- **Outcome tags** (slice, hook, …) as *your* observation. Session insights are counts and group comparisons, not causes. “You aimed left on 8 of 10 slices” is not “aimed left → slice.”
+- **Playback** with frame-accurate stepping on transcoded H.264.
+- **Drawings** (lines, angles, circles, paths) in normalized coordinates, sticky across frames or on one frame.
+- **Outcome tags** (slice, hook, …) as *your* observation. Session page shows tag counts, not causes.
 
 ## Stack
 
@@ -17,7 +17,6 @@ It does **not** estimate pose, score swing quality, track the clubface, or predi
 | Frontend | Next.js 15, TypeScript, Tailwind 4, Canvas 2D |
 | Backend | FastAPI, Python 3.11+ |
 | Media | ffmpeg via `asyncio.create_subprocess_exec` |
-| Geometry | OpenCV headless (homography, stick detection) |
 | DB | PostgreSQL 16, SQLAlchemy 2, Alembic |
 | Identity | Anonymous `X-Client-Id` cookie (`sf_client_id`) |
 
@@ -77,8 +76,6 @@ pytest
 | GET | `/api/media/{id}` | Video bytes; HTTP Range required |
 | GET/POST | `/api/swings/{id}/annotations` | Per-frame drawings (normalized coords) |
 | DELETE | `/api/annotations/{id}` | |
-| POST | `/api/swings/{id}/calibrate` | Stick detect + homography |
-| POST | `/api/swings/{id}/aim` | Toe-stick or face-on heel taps |
 | POST | `/api/swings/{id}/outcome` | Tag ball flight |
-| GET | `/api/sessions/{id}/insights` | Correlations across tagged swings |
+| GET | `/api/sessions/{id}/insights` | Outcome tag counts |
 | POST | `/api/comparisons` | Persist a pair + sync mode |

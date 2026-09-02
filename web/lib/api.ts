@@ -1,8 +1,6 @@
 import { getClientId } from "@/lib/client";
 import type {
-  AimOut,
   AnnotationOut,
-  CalibrationOut,
   ComparisonOut,
   InsightsOut,
   OutcomeOut,
@@ -13,14 +11,7 @@ import type {
   SwingOut,
   SyncMode,
 } from "@/types/api";
-import type { AnnotationKind, CameraView, LineSeg, Point } from "@/types/api";
-
-type AimRequest = {
-  method: "toe_stick" | "heel_taps";
-  heel_a?: Point | null;
-  heel_b?: Point | null;
-  toe_line?: LineSeg | null;
-};
+import type { AnnotationKind, Point } from "@/types/api";
 
 function formatApiError(parsed: unknown, raw: string, fallback: string): string {
   if (parsed && typeof parsed === "object" && "detail" in parsed) {
@@ -46,14 +37,36 @@ function formatApiError(parsed: unknown, raw: string, fallback: string): string 
   return raw.trim() || fallback;
 }
 
+function mediaOrigin(): string {
+  if (typeof window === "undefined") return "";
+  const { protocol, hostname, port } = window.location;
+  // Next's /api rewrite holds HTTP/1.1 connections for Range video and
+  // starves JSON fetches on the same origin — the swing page then sits on
+  // "Loading…" forever. Hit FastAPI directly for media in local Next.
+  if (port === "3000" || port === "3001") {
+    return `${protocol}//${hostname}:8000`;
+  }
+  return "";
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("X-Client-Id", getClientId());
+  const upload = init.body instanceof FormData;
+  const timeoutMs = upload ? 10 * 60 * 1000 : 20_000;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  init.signal?.addEventListener("abort", () => ctrl.abort());
   let res: Response;
   try {
-    res = await fetch(path, { ...init, headers });
-  } catch {
+    res = await fetch(path, { ...init, headers, signal: ctrl.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("The API did not respond. Try refreshing.");
+    }
     throw new Error("Could not reach the API. Is FastAPI running on port 8000?");
+  } finally {
+    clearTimeout(timer);
   }
   const raw = await res.text();
   let parsed: unknown = null;
@@ -93,7 +106,7 @@ export const api = {
     return request<SwingCreateResponse>("/api/swings", { method: "POST", body });
   },
   getSwing: (id: string) => request<SwingOut>(`/api/swings/${id}`),
-  mediaUrl: (id: string) => `/api/media/${id}`,
+  mediaUrl: (id: string) => `${mediaOrigin()}/api/media/${id}`,
   listAnnotations: (id: string) =>
     request<AnnotationOut[]>(`/api/swings/${id}/annotations`),
   createAnnotation: (
@@ -114,30 +127,18 @@ export const api = {
     }),
   deleteAnnotation: (id: string) =>
     request<void>(`/api/annotations/${id}`, { method: "DELETE" }),
-  calibrate: (
-    id: string,
-    body: {
-      frame: number;
-      view: CameraView;
-      stick_length_m: number;
-      stick_separation_m: number;
-      lines?: LineSeg[] | null;
-    }
+  clearAnnotations: (swingId: string) =>
+    request<void>(`/api/swings/${swingId}/annotations`, { method: "DELETE" }),
+  copyAnnotations: (
+    targetId: string,
+    sourceId: string,
+    targetFrame: number
   ) =>
-    request<CalibrationOut>(`/api/swings/${id}/calibrate`, {
+    request<AnnotationOut[]>(`/api/swings/${targetId}/annotations/copy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ source_id: sourceId, target_frame: targetFrame }),
     }),
-  getCalibration: (id: string) =>
-    request<CalibrationOut | null>(`/api/swings/${id}/calibration`),
-  measureAim: (id: string, body: AimRequest) =>
-    request<AimOut>(`/api/swings/${id}/aim`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  getAim: (id: string) => request<AimOut | null>(`/api/swings/${id}/aim`),
   tagOutcome: (id: string, result: OutcomeResult, note?: string) =>
     request<OutcomeOut>(`/api/swings/${id}/outcome`, {
       method: "POST",

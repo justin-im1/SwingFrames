@@ -11,14 +11,14 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://swingframes:swingframes@localhost:5432/swingframes"
     )
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = (
+        "http://localhost:3000,http://localhost:3001,"
+        "http://127.0.0.1:3000,http://127.0.0.1:3001"
+    )
     max_upload_bytes: int = 500 * 1024 * 1024
     max_duration_s: float = 60.0
     storage_dir: str = str(ROOT / "storage")
     distinct_frame_warn_ratio: float = 0.5
-    residual_px_number_max: float = 4.0
-    heel_error_band_deg: float = 2.0
-    toe_error_band_deg: float = 1.0
 
     @property
     def database_url_sync(self) -> str:

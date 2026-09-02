@@ -67,15 +67,14 @@ export default function HomePage() {
     <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-lime-dim">
-          You mark it · the computer measures it
+          Frame-accurate review
         </p>
         <h1 className="display mt-2 text-4xl leading-tight sm:text-5xl">
           Frame-accurate swing review.
         </h1>
         <p className="mt-4 max-w-xl text-mute">
-          Scrub any frame, draw lines that stick, compare two swings, and tap
-          for camera-relative angles. Aim uses sticks on the ground — not pose
-          guesswork.
+          Scrub any frame, draw lines that stick, and compare two swings side by
+          side.
         </p>
         <div className="mt-8">
           <DropZone onFile={onFile} busy={busy} />
@@ -95,9 +94,8 @@ export default function HomePage() {
             live on that frame. Sticky keeps a line visible through the swing.
           </li>
           <li>
-            <span className="text-chalk">3. Aim.</span> Two parallel sticks plus
-            a toe stick, or heels face-on. Image-space numbers are labeled
-            camera-relative.
+            <span className="text-chalk">3. Compare.</span> Two swings, one
+            controller. Tag what the ball did if you want a session count.
           </li>
         </ol>
         <p className="mt-4 text-xs text-mute">
@@ -158,7 +156,7 @@ export default function HomePage() {
             href={`/sessions/${sessionId}`}
             className="block rounded-xl border border-line px-4 py-3 text-center text-sm text-mute hover:text-chalk"
           >
-            Session & insights
+            Session
           </Link>
         )}
       </aside>
